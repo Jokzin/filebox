@@ -1,34 +1,30 @@
 import { nanoid } from 'nanoid';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 
 export default defineEventHandler(async (event) => {
   try {
-    const files = await readMultipartFormData(event);
+    const body = await readBody(event);
+    const files = body.files; // Expecting { files: [{ public_id: '...', secure_url: '...' }] }
 
-    if (!files || files.length === 0) {
+    if (!files || !Array.isArray(files) || files.length === 0) {
       throw createError({
         statusCode: 400,
-        statusMessage: 'No files uploaded.',
+        statusMessage: 'No files data provided.',
       });
     }
 
     const boxId = nanoid(10);
     const boxPath = join(process.cwd(), 'public', 'uploads', boxId);
+    const boxDataFilePath = join(boxPath, 'box_data.json');
 
     // Create the directory for the box
     mkdirSync(boxPath, { recursive: true });
 
-    for (const file of files) {
-      // Basic sanitization for the filename
-      const fileName = basename(file.filename || 'unknown-file');
-      const filePath = join(boxPath, fileName);
-      
-      // Write the file to the disk
-      writeFileSync(filePath, file.data);
-    }
+    // Store Cloudinary file data in a JSON file
+    writeFileSync(boxDataFilePath, JSON.stringify(files, null, 2));
 
-    console.log(`New box created at ${boxPath}`);
+    console.log(`New box created with Cloudinary data at ${boxPath}`);
 
     return { 
       success: true, 

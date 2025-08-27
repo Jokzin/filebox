@@ -55,13 +55,13 @@
                 @mouseenter="videoRefs[file]?.play()"
                 @mouseleave="videoRefs[file]?.pause()"
               >
-                <img v-if="isImage(file)" :src="`/uploads/${boxId}/${file}`" class="h-full w-full object-cover" alt="thumbnail"/>
-                <video v-else-if="isVideo(file)" :src="`/uploads/${boxId}/${file}`" class="h-full w-full object-cover" muted loop playsinline preload="metadata" :ref="el => { if (el) videoRefs[file] = el }"></video>
+                <img v-if="isImage(file)" :src="file.secure_url" class="h-full w-full object-cover" alt="thumbnail"/>
+                <video v-else-if="isVideo(file)" :src="file.secure_url" class="h-full w-full object-cover" muted loop playsinline preload="metadata" :ref="el => { if (el) videoRefs[file] = el }"></video>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
               </div>
               <div class="p-3 flex flex-col flex-grow">
-                <p class="text-sm truncate flex-grow" :title="file">{{ file }}</p>
-                <a :href="`/uploads/${boxId}/${file}`" download class="mt-2 bg-green-600 hover:bg-green-700 text-white text-center font-bold py-1 px-2 rounded text-xs transition-colors">Télécharger</a>
+                <p class="text-sm truncate flex-grow" :title="file.public_id">{{ file.public_id }}</p>
+                <a :href="file.secure_url" download class="mt-2 bg-green-600 hover:bg-green-700 text-white text-center font-bold py-1 px-2 rounded text-xs transition-colors">Télécharger</a>
               </div>
             </div>
           </div>
@@ -93,9 +93,9 @@ const videoRefs = ref({}); // New ref to store video elements
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif'];
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
 
-const getExtension = (filename) => filename.split('.').pop()?.toLowerCase() || '';
-const isImage = (filename) => IMAGE_EXTENSIONS.includes(getExtension(filename));
-const isVideo = (filename) => VIDEO_EXTENSIONS.includes(getExtension(filename));
+const getExtension = (url) => url.split('.').pop()?.toLowerCase() || '';
+const isImage = (file) => IMAGE_EXTENSIONS.includes(getExtension(file.secure_url));
+const isVideo = (file) => VIDEO_EXTENSIONS.includes(getExtension(file.secure_url));
 
 // --- Computed Properties ---
 // --- Computed Properties ---
@@ -142,7 +142,7 @@ const openLightbox = (file) => {
   const fileType = isImage(file) ? 'image' : (isVideo(file) ? 'video' : 'other');
   if (fileType === 'image' || fileType === 'video') {
     lightboxContent.value = {
-      url: `/uploads/${boxId}/${file}`,
+      url: file.secure_url,
       type: fileType,
     };
   }
@@ -160,6 +160,8 @@ const downloadSelection = async () => {
   if (selectedFiles.value.length === 0) return;
   zipLoading.value = true;
   try {
+    const publicIdsToDownload = selectedFiles.value.map(file => ({ public_id: file.public_id, secure_url: file.secure_url }));
+
     const response = await fetch('/api/zip', {
       method: 'POST',
       headers: {
@@ -167,7 +169,7 @@ const downloadSelection = async () => {
       },
       body: JSON.stringify({
         boxId: boxId,
-        files: selectedFiles.value,
+        files: publicIdsToDownload,
       }),
     });
 
@@ -175,16 +177,17 @@ const downloadSelection = async () => {
       throw new Error('Failed to download zip file.');
     }
 
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = `${boxId}-archive.zip`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    a.remove();
+    const responseData = await response.json();
+    if (responseData.success && responseData.zipUrl) {
+      const a = document.createElement('a');
+      a.href = responseData.zipUrl;
+      a.download = `${boxId}-archive.zip`; // Suggest a filename
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } else {
+      throw new Error('Failed to get zip URL from server.');
+    }
 
   } catch (err) {
     console.error('Download error:', err);

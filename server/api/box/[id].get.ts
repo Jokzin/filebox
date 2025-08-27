@@ -1,6 +1,5 @@
-import { readdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { statSync } from 'node:fs';
 
 export default defineEventHandler(async (event) => {
   const boxId = event.context.params?.id;
@@ -10,19 +9,16 @@ export default defineEventHandler(async (event) => {
   }
 
   const boxPath = join(process.cwd(), 'public', 'uploads', boxId);
+  const boxDataFilePath = join(boxPath, 'box_data.json');
 
   try {
-    // Check if directory exists and is a directory
-    const stats = statSync(boxPath);
-    if (!stats.isDirectory()) {
-      throw new Error('Not a directory');
-    }
+    const boxData = readFileSync(boxDataFilePath, 'utf-8');
+    const files = JSON.parse(boxData);
 
-    const files = await readdir(boxPath);
     return { success: true, files };
 
   } catch (error) {
-    // If the directory doesn't exist or other error occurs
-    throw createError({ statusCode: 404, statusMessage: 'Box not found.' });
+    // If the file doesn't exist or other error occurs
+    throw createError({ statusCode: 404, statusMessage: 'Box not found or data corrupted.' });
   }
 });

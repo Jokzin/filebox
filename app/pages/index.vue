@@ -75,6 +75,28 @@ const removeFile = (index) => {
   files.value.splice(index, 1);
 };
 
+const uploadFileToCloudinary = async (file) => {
+  const cloudinaryFormData = new FormData();
+  cloudinaryFormData.append('file', file);
+  cloudinaryFormData.append('upload_preset', 'bernie_box_preset'); // Use the provided preset name
+  cloudinaryFormData.append('cloud_name', 'dmmqarhea'); // Use the provided cloud name
+
+  try {
+    const response = await fetch('https://api.cloudinary.com/v1_1/dmmqarhea/upload', {
+      method: 'POST',
+      body: cloudinaryFormData,
+    });
+    const data = await response.json();
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+    return { public_id: data.public_id, secure_url: data.secure_url };
+  } catch (e) {
+    console.error('Cloudinary upload error:', e);
+    throw new Error(`Échec de l'upload vers Cloudinary pour ${file.name}: ${e.message}`);
+  }
+};
+
 const createBox = async () => {
   if (files.value.length === 0) {
     error.value = 'Veuillez sélectionner au moins un fichier.';
@@ -84,15 +106,16 @@ const createBox = async () => {
   loading.value = true;
   error.value = '';
 
-  const formData = new FormData();
-  files.value.forEach(file => {
-    formData.append('files', file);
-  });
-
+  const uploadedFilesData = [];
   try {
+    for (const file of files.value) {
+      const result = await uploadFileToCloudinary(file);
+      uploadedFilesData.push(result);
+    }
+
     const { data, error: fetchError } = await useFetch('/api/box', {
       method: 'POST',
-      body: formData,
+      body: { files: uploadedFilesData }, // Send Cloudinary data, not raw files
     });
 
     if (fetchError.value) {
