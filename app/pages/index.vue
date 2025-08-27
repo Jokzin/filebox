@@ -1,12 +1,12 @@
 <template>
   <div class="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4">
     <div class="w-full max-w-2xl">
-      <h1 class="text-4xl font-bold text-center mb-8">FileBox</h1>
+      <h1 class="text-4xl font-bold text-center mb-8">Bernie la boîte</h1>
 
       <!-- Dropzone -->
-      <div 
+      <div
         @click="triggerFileInput"
-        @dragover.prevent 
+        @dragover.prevent
         @drop.prevent="handleDrop"
         class="bg-gray-800 border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-green-500 hover:bg-gray-700 transition-colors"
       >
@@ -30,8 +30,8 @@
 
       <!-- Upload Button -->
       <div class="mt-6 text-center">
-        <button 
-          @click="createBox" 
+        <button
+          @click="createBox"
           :disabled="files.length === 0 || loading"
           class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
         >
