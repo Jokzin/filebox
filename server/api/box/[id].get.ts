@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
   try {
     // Search Cloudinary for resources with the given tag (boxId)
     const result = await cloudinary.api.resources_by_tag(boxId, {
-      type: 'upload',
+      // type: 'upload', // Removed to retrieve all resource types
       max_results: 500 // Adjust as needed, default is 10
     });
 
