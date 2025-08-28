@@ -9,22 +9,21 @@ cloudinary.config({
 });
 
 export default defineEventHandler(async (event) => {
-  const { boxId, publicIds } = await readBody(event); // publicIds will be an array of strings: ['id1', 'id2']
+  const { boxId } = await readBody(event);
 
-  if (!boxId || !Array.isArray(publicIds) || publicIds.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid request, publicIds are missing.' });
+  if (!boxId) {
+    throw createError({ statusCode: 400, statusMessage: 'Box ID is required.' });
   }
 
   try {
-    // Generate a zip URL from Cloudinary
-    const zipUrl = cloudinary.utils.download_zip_url({
-      public_ids: publicIds,
-      // resource_type: 'auto', // Cloudinary will infer resource_type from public_ids if not specified
-      // You can add options like 'flatten_folders', 'tags', etc.
+    // Create a zip from all files tagged with the boxId
+    const archiveResult = await cloudinary.uploader.create_zip({
+      tags: [boxId],
+      public_id: `box-${boxId}-archive`
     });
 
-    // Return the URL to the frontend
-    return { success: true, zipUrl: zipUrl };
+    // Return the URL of the generated and stored zip file
+    return { success: true, zipUrl: archiveResult.secure_url };
 
   } catch (error) {
     console.error('Error generating Cloudinary zip:', error);

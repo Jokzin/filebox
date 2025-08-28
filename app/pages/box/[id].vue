@@ -28,33 +28,20 @@
               </button>
             </div>
             <div class="flex-grow"></div>
-            <!-- Selection -->
-            <div class="flex items-center gap-4">
-              <div class="flex items-center gap-2">
-                <input type="checkbox" v-model="isSelectedAll" class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-green-600 focus:ring-green-500"/>
-                <label>Tout sélectionner</label>
-              </div>
-              <button 
-                @click="downloadSelection"
-                :disabled="selectedFiles.length === 0 || zipLoading"
-                class="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed w-40 text-center"
-              >
-                <span v-if="zipLoading">Création...</span>
-                <span v-else>Télécharger ({{ selectedFiles.length }})</span>
-              </button>
-            </div>
+            <!-- Download Button -->
+            <button 
+              @click="downloadAllAsZip"
+              :disabled="zipLoading"
+              class="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed w-48 text-center"
+            >
+              <span v-if="zipLoading">Création de l'archive...</span>
+              <span v-else>Tout télécharger (.zip)</span>
+            </button>
           </div>
 
           <!-- Files Grid -->
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div v-for="file in filteredFiles" :key="file.public_id" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative">
-              <input 
-                type="checkbox" 
-                :value="file.public_id" 
-                v-model="selectedFiles" 
-                @click.stop 
-                class="absolute top-2 left-2 z-10 h-5 w-5 rounded bg-gray-900 bg-opacity-50 border-gray-500 text-green-600 focus:ring-green-500 cursor-pointer"
-              />
+            <div v-for="file in filteredFiles" :key="file.public_id" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative group">
               <div 
                 class="h-32 bg-gray-700 flex items-center justify-center cursor-pointer"
                 @click="openLightbox(file)"
@@ -64,6 +51,9 @@
                 <img v-if="isImage(file)" :src="file.secure_url" class="h-full w-full object-cover" alt="thumbnail"/>
                 <video v-else-if="isVideo(file)" :src="file.secure_url" class="h-full w-full object-cover" muted loop playsinline preload="metadata" :ref="el => { if (el) videoRefs[file] = el }"></video>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <p class="text-white text-center p-2">Voir</p>
+                </div>
               </div>
               <div class="p-3 flex flex-col flex-grow">
                 <p class="text-sm truncate flex-grow" :title="file.public_id">{{ file.public_id }}</p>
@@ -87,14 +77,12 @@ const route = useRoute();
 const boxId = route.params.id;
 
 const { data, pending, error } = await useFetch(`/api/box/${boxId}`);
-console.log('Files received from API:', data.value?.files);
 
 // --- State ---
 const lightboxContent = ref(null);
-const selectedFiles = ref([]);
 const activeFilter = ref('all');
 const zipLoading = ref(false);
-const videoRefs = ref({}); // New ref to store video elements
+const videoRefs = ref({});
 
 // --- File Type Definitions ---
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif'];
@@ -136,13 +124,6 @@ const filteredFiles = computed(() => {
   }
 });
 
-const isSelectedAll = computed({
-  get: () => filteredFiles.value.length > 0 && selectedFiles.value.length === filteredFiles.value.length && filteredFiles.value.every(file => selectedFiles.value.includes(file.public_id)),
-  set: (value) => {
-    selectedFiles.value = value ? filteredFiles.value.map(file => file.public_id) : [];
-  }
-});
-
 // --- Methods ---
 const openLightbox = (file) => {
   const fileType = isImage(file) ? 'image' : (isVideo(file) ? 'video' : 'other');
@@ -158,8 +139,7 @@ const closeLightbox = () => {
   lightboxContent.value = null;
 };
 
-const downloadSelection = async () => {
-  if (selectedFiles.value.length === 0) return;
+const downloadAllAsZip = async () => {
   zipLoading.value = true;
   try {
     const response = await fetch('/api/zip', {
@@ -167,10 +147,7 @@ const downloadSelection = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        boxId: boxId,
-        publicIds: selectedFiles.value, // Send the array of public_id strings directly
-      }),
+      body: JSON.stringify({ boxId: boxId }),
     });
 
     if (!response.ok) {
@@ -182,7 +159,7 @@ const downloadSelection = async () => {
     if (responseData.success && responseData.zipUrl) {
       const a = document.createElement('a');
       a.href = responseData.zipUrl;
-      a.download = `${boxId}-archive.zip`; // Suggest a filename
+      a.download = `${boxId}-archive.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -192,7 +169,6 @@ const downloadSelection = async () => {
 
   } catch (err) {
     console.error('Download error:', err);
-    // Optionally, show an error message to the user
   } finally {
     zipLoading.value = false;
   }
