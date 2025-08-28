@@ -31,7 +31,7 @@
             <!-- Selection -->
             <div class="flex items-center gap-4">
               <div class="flex items-center gap-2">
-                <input type="checkbox" v-model="isSelectedAll" @change="toggleSelectAll" class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-green-600 focus:ring-green-500"/>
+                <input type="checkbox" v-model="isSelectedAll" class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-green-600 focus:ring-green-500"/>
                 <label>Tout sélectionner</label>
               </div>
               <button 
@@ -47,8 +47,14 @@
 
           <!-- Files Grid -->
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div v-for="file in filteredFiles" :key="file" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative">
-              <input type="checkbox" v-model="selectedFiles" :value="file.public_id" class="absolute top-2 left-2 h-5 w-5 rounded bg-gray-900 bg-opacity-50 border-gray-500 text-green-600 focus:ring-green-500"/>
+            <div v-for="file in filteredFiles" :key="file.public_id" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative">
+              <input 
+                type="checkbox" 
+                :value="file.public_id" 
+                v-model="selectedFiles" 
+                @click.stop 
+                class="absolute top-2 left-2 z-10 h-5 w-5 rounded bg-gray-900 bg-opacity-50 border-gray-500 text-green-600 focus:ring-green-500 cursor-pointer"
+              />
               <div 
                 class="h-32 bg-gray-700 flex items-center justify-center cursor-pointer"
                 @click="openLightbox(file)"
@@ -98,7 +104,6 @@ const getExtension = (url) => url.split('.').pop()?.toLowerCase() || '';
 const isImage = (file) => IMAGE_EXTENSIONS.includes(getExtension(file.secure_url));
 const isVideo = (file) => VIDEO_EXTENSIONS.includes(getExtension(file.secure_url));
 
-// --- Computed Properties ---
 // --- Computed Properties ---
 const availableFilters = computed(() => {
   if (!data.value?.files) return [];
@@ -153,20 +158,10 @@ const closeLightbox = () => {
   lightboxContent.value = null;
 };
 
-const toggleSelectAll = () => {
-  isSelectedAll.value = !isSelectedAll.value;
-};
-
 const downloadSelection = async () => {
   if (selectedFiles.value.length === 0) return;
   zipLoading.value = true;
   try {
-    const filesToDownload = selectedFiles.value.map(publicId => {
-      return data.value.files.find(file => file.public_id === publicId);
-    }).filter(Boolean); // Filter out any undefined if a publicId isn't found
-
-    const publicIdsToDownload = filesToDownload.map(file => ({ public_id: file.public_id, secure_url: file.secure_url }));
-
     const response = await fetch('/api/zip', {
       method: 'POST',
       headers: {
@@ -174,12 +169,13 @@ const downloadSelection = async () => {
       },
       body: JSON.stringify({
         boxId: boxId,
-        files: publicIdsToDownload,
+        publicIds: selectedFiles.value, // Send the array of public_id strings directly
       }),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to download zip file.');
+      const errorData = await response.json();
+      throw new Error(errorData.statusMessage || 'Failed to download zip file.');
     }
 
     const responseData = await response.json();

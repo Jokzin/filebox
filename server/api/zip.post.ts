@@ -9,13 +9,11 @@ cloudinary.config({
 });
 
 export default defineEventHandler(async (event) => {
-  const { boxId, files } = await readBody(event); // files will be an array of { public_id: '...', secure_url: '...' }
+  const { boxId, publicIds } = await readBody(event); // publicIds will be an array of strings: ['id1', 'id2']
 
-  if (!boxId || !Array.isArray(files) || files.length === 0) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid request' });
+  if (!boxId || !Array.isArray(publicIds) || publicIds.length === 0) {
+    throw createError({ statusCode: 400, statusMessage: 'Invalid request, publicIds are missing.' });
   }
-
-  const publicIds = files.map(file => file.public_id);
 
   try {
     // Generate a zip URL from Cloudinary
