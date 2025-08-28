@@ -3,11 +3,11 @@
     <div class="w-full max-w-7xl">
       <h1 class="text-3xl font-bold mt-8 text-center">Contenu de la Box</h1>
       <p class="text-gray-400 mt-2 text-center font-mono">{{ boxId }}</p>
-      
+
       <div class="mt-8">
         <div v-if="pending" class="text-center">Chargement...</div>
         <div v-else-if="error" class="text-center text-red-500">Erreur: Impossible de charger cette box.</div>
-        
+
         <div v-else-if="data && data.files.length > 0">
           <!-- Controls -->
           <div class="bg-gray-800 rounded-lg p-4 mb-4 flex flex-wrap items-center gap-4">
@@ -29,7 +29,7 @@
             </div>
             <div class="flex-grow"></div>
             <!-- Download Button -->
-            <button 
+            <button
               @click="downloadAllAsZip"
               :disabled="zipLoading"
               class="px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed w-48 text-center"
@@ -41,17 +41,16 @@
 
           <!-- Files Grid -->
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            <div v-for="file in filteredFiles" :key="file.public_id" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative group">
-              <div 
-                class="h-32 bg-gray-700 flex items-center justify-center cursor-pointer"
-                @click="openLightbox(file)"
+            <div v-for="file in filteredFiles" :key="file.public_id" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col">
+              <div
+                class="h-32 bg-gray-700 flex items-center justify-center relative group"
                 @mouseenter="videoRefs[file]?.play()"
                 @mouseleave="videoRefs[file]?.pause()"
               >
                 <img v-if="isImage(file)" :src="file.secure_url" class="h-full w-full object-cover" alt="thumbnail"/>
                 <video v-else-if="isVideo(file)" :src="file.secure_url" class="h-full w-full object-cover" muted loop playsinline preload="metadata" :ref="el => { if (el) videoRefs[file] = el }"></video>
                 <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                <div class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <div @click="openLightbox(file)" class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
                     <p class="text-white text-center p-2">Voir</p>
                 </div>
               </div>
