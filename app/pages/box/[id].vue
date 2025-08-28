@@ -81,6 +81,7 @@ const route = useRoute();
 const boxId = route.params.id;
 
 const { data, pending, error } = await useFetch(`/api/box/${boxId}`);
+console.log('Files received from API:', data.value?.files);
 
 // --- State ---
 const lightboxContent = ref(null);
