@@ -46,6 +46,7 @@
 <script setup>
 import { ref } from 'vue';
 import { navigateTo } from '#app';
+import { nanoid } from 'nanoid';
 
 const files = ref([]);
 const fileInput = ref(null);
@@ -75,11 +76,12 @@ const removeFile = (index) => {
   files.value.splice(index, 1);
 };
 
-const uploadFileToCloudinary = async (file) => {
+const uploadFileToCloudinary = async (file, boxId) => { // Accept boxId
   const cloudinaryFormData = new FormData();
   cloudinaryFormData.append('file', file);
-  cloudinaryFormData.append('upload_preset', 'bernie_box_preset'); // Use the provided preset name
-  cloudinaryFormData.append('cloud_name', 'dmmqarhea'); // Use the provided cloud name
+  cloudinaryFormData.append('upload_preset', 'bernie_box_preset');
+  cloudinaryFormData.append('cloud_name', 'dmmqarhea');
+  cloudinaryFormData.append('tags', boxId); // Add boxId as a tag
 
   try {
     const response = await fetch('https://api.cloudinary.com/v1_1/dmmqarhea/upload', {
@@ -106,16 +108,17 @@ const createBox = async () => {
   loading.value = true;
   error.value = '';
 
+  const boxId = nanoid(10); // Generate boxId here
   const uploadedFilesData = [];
   try {
     for (const file of files.value) {
-      const result = await uploadFileToCloudinary(file);
+      const result = await uploadFileToCloudinary(file, boxId); // Pass boxId
       uploadedFilesData.push(result);
     }
 
     const { data, error: fetchError } = await useFetch('/api/box', {
       method: 'POST',
-      body: { files: uploadedFilesData }, // Send Cloudinary data, not raw files
+      body: { boxId: boxId, files: uploadedFilesData }, // Send boxId and Cloudinary data
     });
 
     if (fetchError.value) {

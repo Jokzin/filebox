@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
     // Generate a zip URL from Cloudinary
     const zipUrl = cloudinary.utils.download_zip_url({
       public_ids: publicIds,
-      resource_type: 'image', // Assuming images, adjust if other types are present
+      resource_type: 'auto', // Assuming images, adjust if other types are present
       // You can add options like 'flatten_folders', 'tags', etc.
     });
 

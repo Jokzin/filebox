@@ -48,7 +48,7 @@
           <!-- Files Grid -->
           <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             <div v-for="file in filteredFiles" :key="file" class="bg-gray-800 rounded-lg overflow-hidden shadow-lg flex flex-col relative">
-              <input type="checkbox" v-model="selectedFiles" :value="file" class="absolute top-2 left-2 h-5 w-5 rounded bg-gray-900 bg-opacity-50 border-gray-500 text-green-600 focus:ring-green-500"/>
+              <input type="checkbox" v-model="selectedFiles" :value="file.public_id" class="absolute top-2 left-2 h-5 w-5 rounded bg-gray-900 bg-opacity-50 border-gray-500 text-green-600 focus:ring-green-500"/>
               <div 
                 class="h-32 bg-gray-700 flex items-center justify-center cursor-pointer"
                 @click="openLightbox(file)"
@@ -131,9 +131,9 @@ const filteredFiles = computed(() => {
 });
 
 const isSelectedAll = computed({
-  get: () => filteredFiles.value.length > 0 && selectedFiles.value.length === filteredFiles.value.length,
+  get: () => filteredFiles.value.length > 0 && selectedFiles.value.length === filteredFiles.value.length && filteredFiles.value.every(file => selectedFiles.value.includes(file.public_id)),
   set: (value) => {
-    selectedFiles.value = value ? [...filteredFiles.value] : [];
+    selectedFiles.value = value ? filteredFiles.value.map(file => file.public_id) : [];
   }
 });
 
@@ -160,7 +160,11 @@ const downloadSelection = async () => {
   if (selectedFiles.value.length === 0) return;
   zipLoading.value = true;
   try {
-    const publicIdsToDownload = selectedFiles.value.map(file => ({ public_id: file.public_id, secure_url: file.secure_url }));
+    const filesToDownload = selectedFiles.value.map(publicId => {
+      return data.value.files.find(file => file.public_id === publicId);
+    }).filter(Boolean); // Filter out any undefined if a publicId isn't found
+
+    const publicIdsToDownload = filesToDownload.map(file => ({ public_id: file.public_id, secure_url: file.secure_url }));
 
     const response = await fetch('/api/zip', {
       method: 'POST',
