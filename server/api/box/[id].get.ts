@@ -17,12 +17,19 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Search Cloudinary for resources with the given tag (boxId)
-    const result = await cloudinary.api.resources_by_tag(boxId, {
-      // type: 'upload', // Removed to retrieve all resource types
-      max_results: 500 // Adjust as needed, default is 10
+    const imageResult = await cloudinary.api.resources_by_tag(boxId, {
+      resource_type: 'image',
+      max_results: 500
     });
 
-    const files = result.resources.map(resource => ({
+    const videoResult = await cloudinary.api.resources_by_tag(boxId, {
+      resource_type: 'video',
+      max_results: 500
+    });
+
+    const allResources = [...imageResult.resources, ...videoResult.resources];
+
+    const files = allResources.map(resource => ({
       public_id: resource.public_id,
       secure_url: resource.secure_url
     }));
