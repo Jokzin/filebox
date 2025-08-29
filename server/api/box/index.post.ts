@@ -15,14 +15,11 @@ export default defineEventHandler(async (event) => {
 
     // No local file system operations needed anymore, as files are tagged in Cloudinary
 
-    console.log(`Box ID ${boxId} created and files tagged in Cloudinary.`);
-
     return {
       success: true,
       boxId: boxId
     };
   } catch (error) {
-    console.error('Error creating box:', error);
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to create the box.',

@@ -1,11 +1,13 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary (ensure these are set in your .env)
+const config = useRuntimeConfig();
+
+// Configure Cloudinary using runtime config
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-  secure: true
+  cloud_name: config.cloudinaryCloudName,
+  api_key: config.cloudinaryApiKey,
+  api_secret: config.cloudinaryApiSecret,
+  secure: true,
 });
 
 export default defineEventHandler(async (event) => {
@@ -16,7 +18,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Search Cloudinary for resources with the given tag (boxId)
+    // Reverting to the original logic that we know worked for listing.
     const imageResult = await cloudinary.api.resources_by_tag(boxId, {
       resource_type: 'image',
       max_results: 500
@@ -31,17 +33,15 @@ export default defineEventHandler(async (event) => {
 
     const files = allResources.map(resource => ({
       public_id: resource.public_id,
-      secure_url: resource.secure_url
+      secure_url: resource.secure_url,
+      original_filename: resource.original_filename || resource.filename,
+      format: resource.format,
+      bytes: resource.bytes,
     }));
-
-    if (files.length === 0) {
-      throw createError({ statusCode: 404, statusMessage: 'Box not found or empty.' });
-    }
 
     return { success: true, files };
 
   } catch (error) {
-    console.error('Error fetching box from Cloudinary:', error);
     throw createError({ statusCode: 500, statusMessage: 'Failed to retrieve box data.' });
   }
 });

@@ -1,7 +1,12 @@
 <template>
   <div class="min-h-screen bg-gray-900 text-white flex flex-col items-center p-4">
     <div class="w-full max-w-7xl">
-      <h1 class="text-3xl font-bold mt-8 text-center">Contenu de la Box</h1>
+      <div class="flex justify-center items-center gap-4 mt-8">
+        <h1 class="text-3xl font-bold text-center">Contenu de la Box</h1>
+        <button @click="copyBoxUrlToClipboard" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-3 rounded-lg transition-colors text-sm">
+          {{ copyButtonText }}
+        </button>
+      </div>
       <p class="text-gray-400 mt-2 text-center font-mono">{{ boxId }}</p>
 
       <div class="mt-8">
@@ -28,7 +33,8 @@
               </button>
             </div>
             <div class="flex-grow"></div>
-            <!-- Download Button -->
+            <!-- Download Button (Temporarily Hidden) -->
+            <!--
             <button
               @click="downloadAllAsZip"
               :disabled="zipLoading"
@@ -37,6 +43,7 @@
               <span v-if="zipLoading">Création de l'archive...</span>
               <span v-else>Tout télécharger (.zip)</span>
             </button>
+            -->
           </div>
 
           <!-- Files Grid -->
@@ -82,6 +89,7 @@ const lightboxContent = ref(null);
 const activeFilter = ref('all');
 const zipLoading = ref(false);
 const videoRefs = ref({});
+const copyButtonText = ref('Copier le lien');
 
 // --- File Type Definitions ---
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif'];
@@ -138,6 +146,20 @@ const closeLightbox = () => {
   lightboxContent.value = null;
 };
 
+const copyBoxUrlToClipboard = () => {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    copyButtonText.value = 'Copié !';
+    setTimeout(() => {
+      copyButtonText.value = 'Copier le lien';
+    }, 2000);
+  }).catch(err => {
+    copyButtonText.value = 'Erreur';
+     setTimeout(() => {
+      copyButtonText.value = 'Copier le lien';
+    }, 2000);
+  });
+};
+
 const downloadAllAsZip = async () => {
   zipLoading.value = true;
   try {
@@ -167,7 +189,7 @@ const downloadAllAsZip = async () => {
     }
 
   } catch (err) {
-    console.error('Download error:', err);
+    // TODO: Handle error gracefully, e.g., show a toast notification
   } finally {
     zipLoading.value = false;
   }

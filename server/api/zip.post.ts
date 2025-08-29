@@ -1,12 +1,13 @@
 import { v2 as cloudinary } from 'cloudinary';
 
-// Configure Cloudinary
+const config = useRuntimeConfig();
+
+// Configure Cloudinary using runtime config
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: config.cloudinaryCloudName,
+  api_key: config.cloudinaryApiKey,
+  api_secret: config.cloudinaryApiSecret,
   secure: true,
-  signature_algorithm: 'sha256'
 });
 
 export default defineEventHandler(async (event) => {
@@ -17,26 +18,16 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Create a zip from all files tagged with the boxId
+    // create_zip will bundle all resource types (image, video, etc.) that have the tag.
     const archiveResult = await cloudinary.uploader.create_zip({
-      tags: [boxId]
+      tags: [boxId],
+      flatten_folders: true,
     });
 
-    // The public_id from create_zip includes the .zip extension, which must be removed for signing.
-    const publicIdForSigning = archiveResult.public_id.replace(/\.zip$/, '');
-
-    // Explicitly create a signed URL for the newly created zip file
-    const signedUrl = cloudinary.utils.private_download_url(publicIdForSigning, {
-      resource_type: 'raw',
-      type: 'upload',
-      format: 'zip'
-    });
-
-    // Return the signed URL to the frontend
-    return { success: true, zipUrl: signedUrl };
+    // The result of create_zip includes the public URL of the generated zip file.
+    return { success: true, zipUrl: archiveResult.secure_url };
 
   } catch (error) {
-    console.error('Error generating Cloudinary zip:', error);
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to generate zip file.',
