@@ -21,21 +21,15 @@
       <div v-if="files.length > 0" class="mt-6">
         <h2 class="text-xl font-semibold mb-2">Fichiers sélectionnés :</h2>
         <ul>
-          <li 
-            v-for="fileWrapper in files" 
-            :key="fileWrapper.id" 
-            class="flex justify-between items-center bg-gray-800 p-2 rounded-md mb-2 transition-all duration-300"
-            :style="{ background: getBackground(fileWrapper) }"
+          <li
+            v-for="fileWrapper in files"
+            :key="fileWrapper.id"
+            class="flex justify-between items-center bg-gray-800 p-2 rounded-md mb-2"
           >
             <span class="truncate pr-4">{{ fileWrapper.file.name }}</span>
-            <div class="flex items-center">
-              <span v-if="fileWrapper.status === 'uploading'" class="text-sm text-gray-400">{{ fileWrapper.progress }}%</span>
-              <span v-if="fileWrapper.status === 'success'" class="text-green-500">✓</span>
-              <span v-if="fileWrapper.status === 'error'" class="text-red-500" title="Erreur">✗</span>
-              <button @click="removeFile(fileWrapper.id)" class="ml-4 text-red-500 hover:text-red-400 disabled:opacity-50" :disabled="isUploading">
-                &times;
-              </button>
-            </div>
+            <button @click="removeFile(fileWrapper.id)" class="ml-4 text-red-500 hover:text-red-400 disabled:opacity-50" :disabled="isUploading">
+              &times;
+            </button>
           </li>
         </ul>
       </div>
@@ -45,9 +39,9 @@
         <button
           @click="createBox"
           :disabled="files.length === 0 || isUploading"
-          class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+          class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed w-64"
         >
-          <span v-if="isUploading">Création en cours...</span>
+          <span v-if="isUploading">Envoi en cours... {{ uploadProgress }}%</span>
           <span v-else>Créer la Box</span>
         </button>
       </div>
@@ -64,8 +58,8 @@ const files = ref([]);
 const fileInput = ref(null);
 const error = ref('');
 const isDragging = ref(false);
-
-const isUploading = computed(() => files.value.some(f => f.status === 'uploading' || f.status === 'processing'));
+const isUploading = ref(false);
+const uploadProgress = ref(0);
 
 const triggerFileInput = () => {
   if (isUploading.value) return;
@@ -81,11 +75,11 @@ const handleDrop = (event) => {
   addFiles(event.dataTransfer.files);
 };
 
-const handleDragOver = (event) => {
+const handleDragOver = () => {
   isDragging.value = true;
 };
 
-const handleDragLeave = (event) => {
+const handleDragLeave = () => {
   isDragging.value = false;
 };
 
@@ -95,8 +89,6 @@ const addFiles = (fileList) => {
     files.value.push({
       id: nanoid(),
       file: file,
-      progress: 0,
-      status: 'pending', // 'pending', 'uploading', 'success', 'error', 'processing'
     });
   }
 };
@@ -108,102 +100,55 @@ const removeFile = (id) => {
   }
 };
 
-const getBackground = (fileWrapper) => {
-  if (fileWrapper.status === 'uploading') {
-    return `linear-gradient(to right, #2d573d ${fileWrapper.progress}%, #374151 ${fileWrapper.progress}%)`;
-  }
-  if (fileWrapper.status === 'success' || fileWrapper.status === 'processing') {
-    return '#2d573d'; // Green background for success
-  }
-  if (fileWrapper.status === 'error') {
-    return '#572d2d'; // Red background for error
-  }
-  return '#374151'; // Default background
-};
-
-const uploadFileToCloudinary = (fileWrapper, boxId) => {
-  return new Promise((resolve, reject) => {
-    fileWrapper.status = 'uploading';
-    
-    const formData = new FormData();
-    formData.append('file', fileWrapper.file);
-    formData.append('upload_preset', 'bernie_box_preset');
-    formData.append('cloud_name', 'dmmqarhea');
-    formData.append('tags', boxId);
-
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', 'https://api.cloudinary.com/v1_1/dmmqarhea/upload', true);
-
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        fileWrapper.progress = Math.round((event.loaded / event.total) * 100);
-      }
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        const data = JSON.parse(xhr.responseText);
-        if (data.error) {
-          fileWrapper.status = 'error';
-          reject(new Error(data.error.message));
-        } else {
-          fileWrapper.status = 'success';
-          fileWrapper.progress = 100;
-          resolve({ public_id: data.public_id, secure_url: data.secure_url });
-        }
-      } else {
-        fileWrapper.status = 'error';
-        reject(new Error(`Échec de l'upload: ${xhr.statusText}`));
-      }
-    };
-
-    xhr.onerror = () => {
-      fileWrapper.status = 'error';
-      reject(new Error("Erreur réseau lors de l'upload."));
-    };
-
-    xhr.send(formData);
-  });
-};
-
 const createBox = async () => {
   if (files.value.length === 0) {
     error.value = 'Veuillez sélectionner au moins un fichier.';
     return;
   }
   error.value = '';
+  isUploading.value = true;
+  uploadProgress.value = 0;
 
   const boxId = nanoid(10);
-  const uploadPromises = files.value.map(fw => uploadFileToCloudinary(fw, boxId));
+  const formData = new FormData();
+  formData.append('boxId', boxId);
+  files.value.forEach(fileWrapper => {
+    formData.append('files', fileWrapper.file, fileWrapper.file.name);
+  });
 
-  try {
-    const uploadedFilesData = await Promise.all(uploadPromises);
-    
-    // All files are uploaded, now create the box entry
-    files.value.forEach(fw => fw.status = 'processing');
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/upload', true);
 
-    const { data, error: fetchError } = await useFetch('/api/box', {
-      method: 'POST',
-      body: { boxId: boxId, files: uploadedFilesData },
-    });
-
-    if (fetchError.value) {
-      throw new Error(fetchError.value.data?.message || 'Une erreur est survenue lors de la création de la box.');
+  xhr.upload.onprogress = (event) => {
+    if (event.lengthComputable) {
+      uploadProgress.value = Math.round((event.loaded / event.total) * 100);
     }
+  };
 
-    if (data.value?.success && data.value?.boxId) {
-      await navigateTo(`/box/${data.value.boxId}`);
-    } else {
-      throw new Error('La création de la box a échoué.');
-    }
-  } catch (e) {
-    error.value = e.message;
-    // It's good to also mark any non- errored files as errored if the overall process fails
-    files.value.forEach(fw => {
-      if (fw.status !== 'success') {
-        fw.status = 'error';
+  xhr.onload = async () => {
+    isUploading.value = false;
+    if (xhr.status >= 200 && xhr.status < 300) {
+      const data = JSON.parse(xhr.responseText);
+      if (data.success && data.boxId) {
+        await navigateTo(`/box/${data.boxId}`);
+      } else {
+        error.value = "L'upload a réussi mais la réponse du serveur est invalide.";
       }
-    });
-  }
+    } else {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        error.value = data.statusMessage || `Échec de l'upload: ${xhr.statusText}`;
+      } catch (e) {
+        error.value = `Échec de l'upload: ${xhr.statusText}`;
+      }
+    }
+  };
+
+  xhr.onerror = () => {
+    isUploading.value = false;
+    error.value = "Erreur réseau lors de l'upload.";
+  };
+
+  xhr.send(formData);
 };
 </script>

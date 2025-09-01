@@ -1,14 +1,7 @@
-import { v2 as cloudinary } from 'cloudinary';
+import { readdir, stat } from 'fs/promises';
+import path from 'path';
 
 const config = useRuntimeConfig();
-
-// Configure Cloudinary using runtime config
-cloudinary.config({
-  cloud_name: config.cloudinaryCloudName,
-  api_key: config.cloudinaryApiKey,
-  api_secret: config.cloudinaryApiSecret,
-  secure: true,
-});
 
 export default defineEventHandler(async (event) => {
   const boxId = event.context.params?.id;
@@ -17,27 +10,33 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Box ID is required.' });
   }
 
+  let files = [];
+
   try {
-    // Reverting to the original logic that we know worked for listing.
-    const imageResult = await cloudinary.api.resources_by_tag(boxId, {
-      resource_type: 'image',
-      max_results: 500
-    });
+    // --- LOCAL STORAGE ---
+    const storagePath = path.resolve(config.localStoragePath);
+    const boxPath = path.join(storagePath, boxId);
 
-    const videoResult = await cloudinary.api.resources_by_tag(boxId, {
-      resource_type: 'video',
-      max_results: 500
-    });
-
-    const allResources = [...imageResult.resources, ...videoResult.resources];
-
-    const files = allResources.map(resource => ({
-      public_id: resource.public_id,
-      secure_url: resource.secure_url,
-      original_filename: resource.original_filename || resource.filename,
-      format: resource.format,
-      bytes: resource.bytes,
-    }));
+    try {
+      const fileNames = await readdir(boxPath);
+      for (const fileName of fileNames) {
+        const filePath = path.join(boxPath, fileName);
+        const stats = await stat(filePath);
+        files.push({
+          public_id: fileName,
+          secure_url: `/api/files/${boxId}/${fileName}`,
+          original_filename: fileName,
+          format: path.extname(fileName).substring(1),
+          bytes: stats.size,
+        });
+      }
+    } catch (e: any) {
+      if (e.code === 'ENOENT') {
+        // Directory not found, treat as an empty box
+        return { success: true, files: [] };
+      }
+      throw e; // Re-throw other errors
+    }
 
     return { success: true, files };
 

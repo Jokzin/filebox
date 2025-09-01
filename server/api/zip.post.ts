@@ -1,14 +1,7 @@
-import { v2 as cloudinary } from 'cloudinary';
+import path from 'path';
+import archiver from 'archiver';
 
 const config = useRuntimeConfig();
-
-// Configure Cloudinary using runtime config
-cloudinary.config({
-  cloud_name: config.cloudinaryCloudName,
-  api_key: config.cloudinaryApiKey,
-  api_secret: config.cloudinaryApiSecret,
-  secure: true,
-});
 
 export default defineEventHandler(async (event) => {
   const { boxId } = await readBody(event);
@@ -17,20 +10,30 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Box ID is required.' });
   }
 
-  try {
-    // create_zip will bundle all resource types (image, video, etc.) that have the tag.
-    const archiveResult = await cloudinary.uploader.create_zip({
-      tags: [boxId],
-      flatten_folders: true,
-    });
+  // --- LOCAL ZIP LOGIC ---
+  const storagePath = path.resolve(config.localStoragePath);
+  const boxPath = path.join(storagePath, boxId);
 
-    // The result of create_zip includes the public URL of the generated zip file.
-    return { success: true, zipUrl: archiveResult.secure_url };
+  setHeader(event, 'Content-Type', 'application/zip');
+  setHeader(event, 'Content-Disposition', `attachment; filename="${boxId}.zip"`);
 
-  } catch (error) {
-    throw createError({
-      statusCode: 500,
-      statusMessage: 'Failed to generate zip file.',
-    });
-  }
+  const archive = archiver('zip', {
+    zlib: { level: 9 } // Sets the compression level.
+  });
+
+  archive.on('warning', (err) => {
+    if (err.code !== 'ENOENT') throw err;
+  });
+  archive.on('error', (err) => {
+    throw err;
+  });
+
+  // Pipe archive data to the response
+  archive.pipe(event.node.res);
+  // Append files from the box directory
+  archive.directory(boxPath, false);
+  // Finalize the archive
+  await archive.finalize();
+
+  return event.node.res.end();
 });

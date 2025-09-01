@@ -4,8 +4,12 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss'],
   runtimeConfig: {
-    cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME,
-    cloudinaryApiKey: process.env.CLOUDINARY_API_KEY,
-    cloudinaryApiSecret: process.env.CLOUDINARY_API_SECRET,
+    // Private keys are only available on the server
+    localStoragePath: process.env.LOCAL_STORAGE_PATH,
+
+    // Public keys are available on both client and server
+    public: {
+      storageType: process.env.STORAGE_TYPE,
+    }
   }
 })

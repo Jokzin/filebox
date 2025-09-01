@@ -34,7 +34,6 @@
             </div>
             <div class="flex-grow"></div>
             <!-- Download Button (Temporarily Hidden) -->
-            <!--
             <button
               @click="downloadAllAsZip"
               :disabled="zipLoading"
@@ -43,7 +42,6 @@
               <span v-if="zipLoading">Création de l'archive...</span>
               <span v-else>Tout télécharger (.zip)</span>
             </button>
-            -->
           </div>
 
           <!-- Files Grid -->
@@ -172,24 +170,22 @@ const downloadAllAsZip = async () => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.statusMessage || 'Failed to download zip file.');
+      throw new Error("La génération de l'archive a échoué.");
     }
 
-    const responseData = await response.json();
-    if (responseData.success && responseData.zipUrl) {
-      const a = document.createElement('a');
-      a.href = responseData.zipUrl;
-      a.download = `${boxId}-archive.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      throw new Error('Failed to get zip URL from server.');
-    }
+    // Handle the file stream response
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${boxId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
 
   } catch (err) {
-    // TODO: Handle error gracefully, e.g., show a toast notification
+    console.error('Download error:', err);
   } finally {
     zipLoading.value = false;
   }
